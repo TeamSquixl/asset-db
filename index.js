@@ -1,4 +1,3 @@
-// register editor versions
 var ED = global.Editor;
 if ( ED ) {
     var Meta = require('./lib/meta');
@@ -8,16 +7,18 @@ if ( ED ) {
     ED.metas.folder = Meta.FolderMeta;
 
     if ( ED.isPageLevel ) {
-        require('./page');
+        require('./page/asset-db');
         return;
     }
 
     if ( ED.isCoreLevel ) {
         ED.versions['asset-db'] = require('./package.json').version;
-        require('./core');
+        require('./core/ipc');
+        require('./core/protocol');
     }
 }
 
+// register editor versions
 var EventEmitter = require('events');
 var Util = require('util');
 
@@ -25,8 +26,11 @@ var Fs = require('fire-fs');
 var Path = require('fire-path');
 var Async = require('async');
 
-
 function _shortString ( str, cnt ) {
+    if (typeof str !== 'string') {
+        return typeof str;
+    }
+
     if ( cnt <= 3 || str.length <= cnt )
         return str;
 
@@ -41,15 +45,15 @@ function _shortString ( str, cnt ) {
  * constructor
  */
 function AssetDB ( opts ) {
+    opts = opts || {};
+
     this.cwd = opts.cwd || process.cwd();
 
     var library = opts.library || 'library';
     this.library = Path.resolve(this.cwd, library);
 
     // create library directory if not exists
-    if ( !Fs.existsSync(this.library) ) {
-        Fs.makeTreeSync(this.library);
-    }
+    Fs.ensureDirSync(this.library);
 
     // init db tables
     this._mounts = {};
@@ -62,15 +66,7 @@ function AssetDB ( opts ) {
 
     // init imports folder
     this._importPath = Path.join( this.library, 'imports' );
-    if ( !Fs.existsSync(this._importPath) ) {
-        Fs.mkdirSync(this._importPath);
-    }
-
-    // init thumbnails folder
-    this._thumbnailPath = Path.join( this.library, 'thumbnails' );
-    if ( !Fs.existsSync(this._thumbnailPath) ) {
-        Fs.mkdirSync(this._thumbnailPath);
-    }
+    Fs.ensureDirSync(this._importPath);
 
     // load uuid-to-mtime table
     this._uuid2mtimePath = Path.join( this.library, 'uuid-to-mtime.json' );
@@ -98,9 +94,25 @@ function AssetDB ( opts ) {
 
         // push finish callback
         var done = function ( err ) {
-            this.success('done!');
+            if ( !this._curTask.silent ) {
+                if ( err ) {
+                    this.failed('failed!');
+                }
+                else {
+                    this.success('done!');
+                }
+            }
             this._curTask = null;
-            callback.apply( null, arguments );
+
+            try {
+                callback.apply( null, arguments );
+            } catch ( err2 ) {
+                this.failed('Exception ', err2.stack);
+            }
+
+            if ( ED && ED.mainWindow && this._tasks.idle() ) {
+                ED.sendToMainWindow('asset-db:state-changed', 'idle');
+            }
         }.bind(this);
         task.params.unshift(this);
         task.params.push(done);
@@ -108,23 +120,37 @@ function AssetDB ( opts ) {
 
         // run the task
         try {
-            this.log('[db-task][%s] running...', taskNameWithParams);
+            if ( ED && ED.mainWindow ) {
+                ED.sendToMainWindow('asset-db:state-changed', 'busy');
+            }
+            if ( !task.silent ) {
+                this.log('[db-task][%s] running...', taskNameWithParams);
+            }
             this._curTask = task;
             task.run.apply( this, task.params );
         } catch ( err ) {
-            this.failed('failed!');
+            this.failed('Exception ', err.stack);
             this._curTask = null;
             callback(err);
+
+            if ( ED && ED.mainWindow && this._tasks.idle() ) {
+                ED.sendToMainWindow('asset-db:state-changed', 'idle');
+            }
         }
     }.bind(this), 1);
 }
 
 var JS = require('./lib/js-utils.js');
-JS.extend(AssetDB,EventEmitter); // inherit from event emitter
+JS.extend( AssetDB, EventEmitter ); // inherit from event emitter
+JS.extend( AssetDB, require('./lib/static') ); // inherit from event emitter
 
 JS.mixin( AssetDB.prototype, require('./lib/utils') );
 JS.mixin( AssetDB.prototype, require('./lib/interface') );
 JS.mixin( AssetDB.prototype, require('./lib/internal') );
+
+if ( ED && ED.isCoreLevel ) {
+    JS.mixin( AssetDB.prototype, require('./core/watch') );
+}
 
 // export module
 module.exports = AssetDB;

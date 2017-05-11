@@ -1,6 +1,6 @@
 {
   "name": "asset-db",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "description": "A data base store uuid to path and vice versa information",
   "homepage": "http://fireball-x.com",
   "repository": {
@@ -8,7 +8,7 @@
     "url": "https://github.com/fireball-x/asset-db.git"
   },
   "author": "Firebox Technology",
-  "license": "ISC",
+  "license": "MIT",
   "keywords": [
     "database",
     "files",
@@ -24,22 +24,23 @@
     "rm-meta": "node utils/rm-meta.js"
   },
   "dependencies": {
-    "async": "1.1.0",
-    "chalk": "1.0.0",
-    "chokidar": "1.0.2",
+    "async": "1.4.2",
+    "chalk": "1.1.0",
     "commander": "2.8.1",
-    "del": "1.2.0",
-    "fire-fs": "0.1.9",
+    "del": "1.2.1",
+    "fire-fs": "0.2.1",
     "fire-path": "0.1.7",
     "fire-url": "0.1.6",
-    "globby": "2.0.0",
-    "lodash": "3.9.3",
-    "minimatch": "2.0.8",
-    "node-uuid": "1.4.2"
+    "fire-watch": "0.1.9",
+    "globby": "2.1.0",
+    "lodash": "3.10.1",
+    "minimatch": "2.0.10",
+    "node-uuid": "1.4.3"
   },
   "devDependencies": {
-    "chai": "2.3.0",
+    "chai": "3.2.0",
+    "firedoc": "1.9.0",
     "mocha": "2.2.5",
-    "sinon": "1.15.0"
+    "sinon": "1.15.4"
   }
 }
